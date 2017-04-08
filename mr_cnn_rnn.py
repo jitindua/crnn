@@ -10,7 +10,7 @@ np.random.seed(3435)  # for reproducibility, should be first
 
 
 from keras.preprocessing import sequence
-from keras.models import Sequential, Graph
+from keras.models import Sequential#, Graph
 from keras.layers import Dropout, Activation, Flatten, \
     Embedding, Convolution1D, MaxPooling1D, AveragePooling1D, \
     Input, Dense, merge
@@ -25,6 +25,7 @@ from keras.optimizers import Adadelta
 import time
 
 
+word_model = 1
 batch_size = 50
 nb_filter = 200
 filter_length = 4
@@ -46,7 +47,11 @@ print('Train...')
 accs = []
 first_run = True
 for i in xrange(folds):
-    X_train, y_train, X_test, y_test, W, W2 = mr_data.load_data(fold=i)
+    if word_model:
+        X_train, y_train, X_test, y_test, W, W2 = mr_data.load_data(fold=i, word_model)
+    else:
+        X_train, y_train, X_test, y_test = mr_data.load_data(fold=i, word_model)
+
     print(len(X_train), 'train sequences')
     print(len(X_test), 'test sequences')
     print('X_train shape:', X_train.shape)
@@ -55,12 +60,52 @@ for i in xrange(folds):
     X_train = X_train[rand_idx]
     y_train = y_train[rand_idx]
 
+
+    def charCNN():
+
+        feature_maps = [50,100,150,200,200,200,200]
+        kernels = [1,2,3,4,5,6,7]
+        
+        # chars = Input(batch_shape=(opt.batch_size, opt.seq_length, opt.max_word_l), dtype='int32', name='chars')
+        # ? max_len x max_word_l x ?char_vocab_size?
+        # chars = Input(shape=(max_len, max_word_l), dtype='int32', name='chars') or
+        chars = Input(shape=(max_len, max_word_l, ), dtype='int32', name='chars')
+        # ? input_length should be max_len x max_word_l. maybe auto determined by TimeDistributed
+        chars_embedding = TimeDistributed(Embedding(char_vocab_size, char_vec_size, name='chars_embedding'))(chars)
+        cnn = CNN(max_len, max_word_l, char_vec_size, feature_maps, kernels, chars_embedding)
+
+        x = cnn
+        inputs = chars
+
+        batch_norm = 0
+        if batch_norm:
+            x = BatchNormalization()(x)
+
+        highway_layers = 0
+        for l in range(highway_layers):
+            x = TimeDistributed(Highway(activation='relu'))(x)
+
+        return inputs, x
+
+        
+
+
     def build_model():
         print('Build model...%d of %d' % (i + 1, folds))
-        main_input = Input(shape=(maxlen, ), dtype='int32', name='main_input')
-        embedding  = Embedding(max_features, embedding_dims,
-                      weights=[np.matrix(W)], input_length=maxlen,
-                      name='embedding')(main_input)
+
+        if word_model:
+            main_input = Input(shape=(maxlen, ), dtype='int32', name='main_input')
+            # embedding_dims = 300 (w2v) -> output
+            # max_features = vocab
+            # max_len: sentece length + padding = 64
+            # takes int in range [0, max_features)
+            embedding  = Embedding(max_features, embedding_dims,
+                          weights=[np.matrix(W)], input_length=maxlen,
+                          name='embedding')(main_input)      
+        else:
+            # Input would be list of characters instead of index for a word
+            # max_features is char representation dimention 26/...
+            main_input, embedding = charCNN(char_vocab_size, char_vec_size, embedding_dims, maxlen)
 
         embedding = Dropout(0.50)(embedding)
 
