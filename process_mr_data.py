@@ -48,7 +48,7 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
         word = word.replace(tokens.UNK, '')
         charcount.update(word)
 
-    counts = 0
+    '''counts = 0'''
     with open(pos_file, "rb") as f:
         for line in f:
             rev = []
@@ -89,11 +89,11 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
             words = set(orig_rev.split())
             for word in words:
                 vocab[word] += 1
-                max_word_l_tmp = max(max_word_l_tmp, len(word) + 2) # add 2 for start/end chars
-                counts += 1
+                max_word_l_tmp = max(max_word_l_tmp, len(word)) # add 2 for start/end chars
+                '''counts += 1'''
             if tokens.EOS != '':
                 update(tokens.EOS)
-                counts += 1 # PTB uses \n for <eos>, so need to add one more token at the end
+                '''counts += 1 # PTB uses \n for <eos>, so need to add one more token at the end'''
             datum  = {"y":0,
                       "text": orig_rev,
                       "num_words": len(orig_rev.split()),
@@ -294,9 +294,9 @@ if __name__=="__main__":
     W2, _ = get_W(rand_vecs)
     cPickle.dump([revs, W, W2, word_idx_map, vocab], open("mr.p", "wb"))
     '''cPickle.dump([wordcount, charcount, max_word_l, idx2word, word2idx, idx2char, char2idx], open("mr2.p", "wb"))'''
-    cPickle.dump([len(charcount), max_word_l, char2idx], open("mr2.p", "wb"))
+    cPickle.dump([len(charcount)+4, max_word_l, char2idx], open("mr2.p", "wb"))
     
-    #print ('charcount', charcount, '\n\nmax_word_l', max_word_l, '\n\nchar2idx', char2idx, '\n\n')
+    '''print ('charcount', charcount, '\n\nmax_word_l', max_word_l, '\n\nchar2idx', char2idx, '\n\n')'''
     print "dataset created!"
 
 

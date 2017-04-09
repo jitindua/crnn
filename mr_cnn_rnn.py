@@ -13,7 +13,7 @@ from keras.preprocessing import sequence
 from keras.models import Sequential#, Graph
 from keras.layers import Dropout, Activation, Flatten, \
     Embedding, Convolution1D, MaxPooling1D, AveragePooling1D, \
-    Input, Dense, merge, TimeDistributed, Convolution2D, MaxPooling2D, Merge, Reshape
+    Input, Dense, merge, TimeDistributed, Convolution2D, MaxPooling2D, Merge, Reshape, Highway
 from keras.regularizers import l2
 from keras.layers.recurrent import LSTM, GRU, SimpleRNN
 from keras.constraints import maxnorm
@@ -54,6 +54,9 @@ print('X_test shape:', X_test.shape)
 # word: 
 # X_train shape: (9595, 64)
 # X_test shape: (1067, 64)
+print('char_vocab_size', char_vocab_size)
+print('max_word_l', max_word_l)
+
 
 # sent len + pad
 maxlen = X_train.shape[1]
@@ -109,7 +112,7 @@ for i in xrange(folds):
         if batch_norm:
             x = BatchNormalization()(x)
 
-        highway_layers = 0
+        highway_layers = 1
         for l in range(highway_layers):
             x = TimeDistributed(Highway(activation='relu'))(x)
 
@@ -180,7 +183,7 @@ for i in xrange(folds):
     model = build_model()
     if first_run:
         first_run = False
-        #print(model.summary())
+        print(model.summary())
 
     best_val_acc = 0
     best_test_acc = 0
