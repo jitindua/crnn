@@ -1,8 +1,12 @@
 import numpy as np
 import cPickle
-from collections import defaultdict
+from collections import defaultdict, Counter, OrderedDict, namedtuple
 import sys, re
 import pandas as pd
+
+Tokens = namedtuple('Tokens', ['EOS', 'UNK', 'START', 'END', 'ZEROPAD'])
+EOS = '+'
+encoding='utf8'
 
 def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=30000, n_chars = 100):
     """
@@ -14,6 +18,14 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
     vocab = defaultdict(float)
     '''wordcount = Counter()'''
     charcount = Counter()
+
+    tokens = Tokens(
+        EOS=EOS,
+        UNK='|',    # unk word token
+        START='{',  # start-of-word token
+        END='}',    # end-of-word token
+        ZEROPAD=' ' # zero-pad token
+    )
 
     
     max_word_l_tmp = 0 # max word length of the corpus
@@ -40,10 +52,10 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
     with open(pos_file, "rb") as f:
         for line in f:
             rev = []
+            line = line.replace('<unk>', tokens.UNK)  # replace unk with a single character
+            line = line.replace(tokens.START, '')  # start-of-word token is reserved
+            line = line.replace(tokens.END, '')  # end-of-word token is reserved
             rev.append(line.strip())
-            rev = rev.replace('<unk>', tokens.UNK)  # replace unk with a single character
-            rev = rev.replace(tokens.START, '')  # start-of-word token is reserved
-            rev = rev.replace(tokens.END, '')  # end-of-word token is reserved
             if clean_string:
                 orig_rev = clean_str(" ".join(rev))
             else:
@@ -51,6 +63,7 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
             words = set(orig_rev.split())
             for word in words:
                 vocab[word] += 1
+                update(word)
                 max_word_l_tmp = max(max_word_l_tmp, len(word))
                 '''max_word_l_tmp = max(max_word_l_tmp, len(word) + 2) # add 2 for start/end chars
                 counts += 1'''
@@ -65,10 +78,10 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
     with open(neg_file, "rb") as f:
         for line in f:
             rev = []
+            line = line.replace('<unk>', tokens.UNK)  # replace unk with a single character
+            line = line.replace(tokens.START, '')  # start-of-word token is reserved
+            line = line.replace(tokens.END, '')  # end-of-word token is reserved
             rev.append(line.strip())
-            rev = rev.replace('<unk>', tokens.UNK)  # replace unk with a single character
-            rev = rev.replace(tokens.START, '')  # start-of-word token is reserved
-            rev = rev.replace(tokens.END, '')  # end-of-word token is reserved
             if clean_string:
                 orig_rev = clean_str(" ".join(rev))
             else:
@@ -99,7 +112,7 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
     for ii, cc in enumerate(charcount.most_common(n_chars - 4)):
         char = cc[0]
         char2idx[char] = ii + 4
-        idx2char.append(char)
+        '''idx2char.append(char)'''
         if ii < 3: print char
 
     print 'Char counts:'
@@ -135,10 +148,10 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
     with open(pos_file, "rb") as f:
         for line in f:
             rev = []
+            line = line.replace('<unk>', tokens.UNK)  # replace unk with a single character
+            line = line.replace(tokens.START, '')  # start-of-word token is reserved
+            line = line.replace(tokens.END, '')  # end-of-word token is reserved
             rev.append(line.strip())
-            rev = rev.replace('<unk>', tokens.UNK)  # replace unk with a single character
-            rev = rev.replace(tokens.START, '')  # start-of-word token is reserved
-            rev = rev.replace(tokens.END, '')  # end-of-word token is reserved
             if clean_string:
                 orig_rev = clean_str(" ".join(rev))
             else:
@@ -152,10 +165,10 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
     with open(neg_file, "rb") as f:
         for line in f:
             rev = []
+            line = line.replace('<unk>', tokens.UNK)  # replace unk with a single character
+            line = line.replace(tokens.START, '')  # start-of-word token is reserved
+            line = line.replace(tokens.END, '')  # end-of-word token is reserved
             rev.append(line.strip())
-            rev = rev.replace('<unk>', tokens.UNK)  # replace unk with a single character
-            rev = rev.replace(tokens.START, '')  # start-of-word token is reserved
-            rev = rev.replace(tokens.END, '')  # end-of-word token is reserved
             if clean_string:
                 orig_rev = clean_str(" ".join(rev))
             else:
@@ -169,11 +182,11 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
     all_data = output_tensor
     all_data_char = output_chars
 
-    vocab_size = len(idx2word)'''
-    char_vocab_size = len(idx2char)
+    vocab_size = len(idx2word)
+    char_vocab_size = len(idx2char)'''
     
     '''return revs, vocab, wordcount, charcount, max_word_l, idx2word, word2idx, idx2char, char2idx'''
-    return revs, vocab, charcount, max_word_l, idx2char, char2idx
+    return revs, vocab, charcount, max_word_l, char2idx, tokens
 
 def get_W(word_vecs, k=300):
     """
@@ -259,7 +272,7 @@ if __name__=="__main__":
     # tokenized sentences and y
     #revs, vocab = build_data_cv(data_folder, cv=10, clean_string=True)
     '''revs, vocab, wordcount, charcount, max_word_l, idx2word, word2idx, idx2char, char2idx = build_data_cv(data_folder, max_word_l, n_words, n_chars, cv=10, clean_string=True)'''
-    revs, vocab, charcount, max_word_l, idx2char, char2idx = build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=30000, n_chars = 100)
+    revs, vocab, charcount, max_word_l, char2idx, tokens = build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=30000, n_chars = 100)
     max_l = np.max(pd.DataFrame(revs)["num_words"])
     print "data loaded!"
     print "number of sentences: " + str(len(revs))
@@ -281,7 +294,9 @@ if __name__=="__main__":
     W2, _ = get_W(rand_vecs)
     cPickle.dump([revs, W, W2, word_idx_map, vocab], open("mr.p", "wb"))
     '''cPickle.dump([wordcount, charcount, max_word_l, idx2word, word2idx, idx2char, char2idx], open("mr2.p", "wb"))'''
-    cPickle.dump([charcount, max_word_l, idx2char, char2idx], open("mr2.p", "wb"))
+    cPickle.dump([len(charcount), max_word_l, char2idx], open("mr2.p", "wb"))
+    
+    #print ('charcount', charcount, '\n\nmax_word_l', max_word_l, '\n\nchar2idx', char2idx, '\n\n')
     print "dataset created!"
 
 

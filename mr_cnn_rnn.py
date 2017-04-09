@@ -13,7 +13,7 @@ from keras.preprocessing import sequence
 from keras.models import Sequential#, Graph
 from keras.layers import Dropout, Activation, Flatten, \
     Embedding, Convolution1D, MaxPooling1D, AveragePooling1D, \
-    Input, Dense, merge
+    Input, Dense, merge, TimeDistributed, Convolution2D, MaxPooling2D, Merge, Reshape
 from keras.regularizers import l2
 from keras.layers.recurrent import LSTM, GRU, SimpleRNN
 from keras.constraints import maxnorm
@@ -25,7 +25,8 @@ from keras.optimizers import Adadelta
 import time
 
 
-word_model = 1
+word_model = 0
+char_vec_size = 15
 batch_size = 50
 nb_filter = 200
 filter_length = 4
@@ -38,19 +39,33 @@ folds = 10
 print('Loading data...')
 
 import mr_data
-X_train, y_train, X_test, y_test, W, W2 = mr_data.load_data(fold=0)
+if word_model:
+  X_train, y_train, X_test, y_test, W, W2 = mr_data.load_data(fold=0, word_model = word_model)
+  max_features = len(W)
+  embedding_dims = len(W[0])
+else:
+  X_train, y_train, X_test, y_test, char_vocab_size, max_word_l = mr_data.load_data(fold=0, word_model = word_model)
+
+print('X_train shape:', X_train.shape)
+print('X_test shape:', X_test.shape)
+# char:
+# X_train shape: (9595, 64, 20)
+# X_test shape: (1067, 64, 20)
+# word: 
+# X_train shape: (9595, 64)
+# X_test shape: (1067, 64)
+
+# sent len + pad
 maxlen = X_train.shape[1]
-max_features = len(W)
-embedding_dims = len(W[0])
 
 print('Train...')
 accs = []
 first_run = True
 for i in xrange(folds):
     if word_model:
-        X_train, y_train, X_test, y_test, W, W2 = mr_data.load_data(fold=i, word_model)
+        X_train, y_train, X_test, y_test, W, W2 = mr_data.load_data(fold=i, word_model=word_model)
     else:
-        X_train, y_train, X_test, y_test = mr_data.load_data(fold=i, word_model)
+        X_train, y_train, X_test, y_test, char_vocab_size, max_word_l  = mr_data.load_data(fold=i, word_model=word_model)
 
     print(len(X_train), 'train sequences')
     print(len(X_test), 'test sequences')
@@ -60,6 +75,18 @@ for i in xrange(folds):
     X_train = X_train[rand_idx]
     y_train = y_train[rand_idx]
 
+    def CNN(seq_length, length, input_size, feature_maps, kernels, x):
+        
+        concat_input = []
+        for feature_map, kernel in zip(feature_maps, kernels):
+            reduced_l = length - kernel + 1
+            conv = Convolution2D(feature_map, 1, kernel, activation='tanh', dim_ordering='tf')(x)
+            maxp = MaxPooling2D((1, reduced_l), dim_ordering='tf')(conv)
+            concat_input.append(maxp)
+
+        x = Merge(mode='concat')(concat_input)
+        x = Reshape((seq_length, sum(feature_maps)))(x)
+        return x
 
     def charCNN():
 
@@ -69,10 +96,11 @@ for i in xrange(folds):
         # chars = Input(batch_shape=(opt.batch_size, opt.seq_length, opt.max_word_l), dtype='int32', name='chars')
         # ? max_len x max_word_l x ?char_vocab_size?
         # chars = Input(shape=(max_len, max_word_l), dtype='int32', name='chars') or
-        chars = Input(shape=(max_len, max_word_l, ), dtype='int32', name='chars')
+        chars = Input(shape=(maxlen, max_word_l, ), dtype='int32', name='chars')
         # ? input_length should be max_len x max_word_l. maybe auto determined by TimeDistributed
         chars_embedding = TimeDistributed(Embedding(char_vocab_size, char_vec_size, name='chars_embedding'))(chars)
-        cnn = CNN(max_len, max_word_l, char_vec_size, feature_maps, kernels, chars_embedding)
+        #chars_embedding = Embedding(maxlen, char_vocab_size, char_vec_size, name='chars_embedding')(chars)
+        cnn = CNN(maxlen, max_word_l, char_vec_size, feature_maps, kernels, chars_embedding)
 
         x = cnn
         inputs = chars
@@ -105,7 +133,7 @@ for i in xrange(folds):
         else:
             # Input would be list of characters instead of index for a word
             # max_features is char representation dimention 26/...
-            main_input, embedding = charCNN(char_vocab_size, char_vec_size, embedding_dims, maxlen)
+            main_input, embedding = charCNN()
 
         embedding = Dropout(0.50)(embedding)
 
@@ -152,7 +180,7 @@ for i in xrange(folds):
     model = build_model()
     if first_run:
         first_run = False
-        print(model.summary())
+        #print(model.summary())
 
     best_val_acc = 0
     best_test_acc = 0
