@@ -31,8 +31,8 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
     max_word_l_tmp = 0 # max word length of the corpus
     '''idx2word = [tokens.UNK] # unknown word token
     word2idx = OrderedDict()
-    word2idx[tokens.UNK] = 0
-    idx2char = [tokens.ZEROPAD, tokens.START, tokens.END, tokens.UNK] # zero-pad, start-of-word, end-of-word tokens'''
+    word2idx[tokens.UNK] = 0'''
+    idx2char = [tokens.ZEROPAD, tokens.START, tokens.END, tokens.UNK] # zero-pad, start-of-word, end-of-word tokens
     char2idx = OrderedDict()
     char2idx[tokens.ZEROPAD] = 0
     char2idx[tokens.START] = 1
@@ -64,7 +64,7 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
             for word in words:
                 vocab[word] += 1
                 update(word)
-                max_word_l_tmp = max(max_word_l_tmp, len(word))
+                max_word_l_tmp = max(max_word_l_tmp, len(word) + 2)
                 '''max_word_l_tmp = max(max_word_l_tmp, len(word) + 2) # add 2 for start/end chars
                 counts += 1'''
             if tokens.EOS != '':
@@ -89,7 +89,7 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
             words = set(orig_rev.split())
             for word in words:
                 vocab[word] += 1
-                max_word_l_tmp = max(max_word_l_tmp, len(word)) # add 2 for start/end chars
+                max_word_l_tmp = max(max_word_l_tmp, len(word) + 2) # add 2 for start/end chars
                 '''counts += 1'''
             if tokens.EOS != '':
                 update(tokens.EOS)
@@ -112,7 +112,7 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
     for ii, cc in enumerate(charcount.most_common(n_chars - 4)):
         char = cc[0]
         char2idx[char] = ii + 4
-        '''idx2char.append(char)'''
+        idx2char.append(char)
         if ii < 3: print char
 
     print 'Char counts:'
@@ -186,7 +186,7 @@ def build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=
     char_vocab_size = len(idx2char)'''
     
     '''return revs, vocab, wordcount, charcount, max_word_l, idx2word, word2idx, idx2char, char2idx'''
-    return revs, vocab, charcount, max_word_l, char2idx, tokens
+    return revs, vocab, charcount, max_word_l, char2idx, idx2char, tokens
 
 def get_W(word_vecs, k=300):
     """
@@ -272,7 +272,7 @@ if __name__=="__main__":
     # tokenized sentences and y
     #revs, vocab = build_data_cv(data_folder, cv=10, clean_string=True)
     '''revs, vocab, wordcount, charcount, max_word_l, idx2word, word2idx, idx2char, char2idx = build_data_cv(data_folder, max_word_l, n_words, n_chars, cv=10, clean_string=True)'''
-    revs, vocab, charcount, max_word_l, char2idx, tokens = build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=30000, n_chars = 100)
+    revs, vocab, charcount, max_word_l, char2idx, idx2char, tokens = build_data_cv(data_folder, cv=10, clean_string=True, max_word_l=65, n_words=30000, n_chars = 100)
     max_l = np.max(pd.DataFrame(revs)["num_words"])
     print "data loaded!"
     print "number of sentences: " + str(len(revs))
@@ -294,7 +294,7 @@ if __name__=="__main__":
     W2, _ = get_W(rand_vecs)
     cPickle.dump([revs, W, W2, word_idx_map, vocab], open("mr.p", "wb"))
     '''cPickle.dump([wordcount, charcount, max_word_l, idx2word, word2idx, idx2char, char2idx], open("mr2.p", "wb"))'''
-    cPickle.dump([len(charcount)+4, max_word_l, char2idx], open("mr2.p", "wb"))
+    cPickle.dump([len(charcount)+4, max_word_l, char2idx, idx2char], open("mr2.p", "wb"))
     
     '''print ('charcount', charcount, '\n\nmax_word_l', max_word_l, '\n\nchar2idx', char2idx, '\n\n')'''
     print "dataset created!"

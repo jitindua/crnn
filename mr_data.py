@@ -56,15 +56,17 @@ def get_char_idx_from_sent(sent, max_word_l, char2idx, tokens, max_l=51, k=300, 
 
     words = sent.split()
     for word in words:
-        temp = []
+        temp = [char2idx[tokens.START]]
         for char in word:
             if char in char2idx:
                 temp.append(char2idx[char])
             else:
                 temp.append(char2idx[tokens.UNK])
         if len(word) >= max_word_l:
+            temp[max_word_l-1] = char2idx[tokens.END]
             temp = temp[:max_word_l]
         else:
+            temp.append(char2idx[tokens.END])
             while len(temp) < max_word_l:
                 temp.append(char2idx[tokens.ZEROPAD])
         x.append(temp)
@@ -139,13 +141,24 @@ def load_data(fold, pad_left=True, word_model = True):
     # word_idx_map: word2idx
     # vocab: vocab of words
     revs, W, W2, word_idx_map, vocab = x[0], x[1], x[2], x[3], x[4]
-    charcount, max_word_l, char2idx = y[0], y[1], y[2]
+    charcount, max_word_l, char2idx, idx2char = y[0], y[1], y[2], y[3]
     if word_model:
         datasets = make_idx_data_cv(revs, word_idx_map, fold, max_l=56, k=300, filter_h=5, pad_left=pad_left)
         img_h = len(datasets[0][0])-1
         return datasets[0][:,:img_h], datasets[0][:, -1], datasets[1][:,: img_h], datasets[1][: , -1], W, W2
     else:
         datasets_char = make_char_idx_data_cv(revs, fold, max_word_l, char2idx, tokens, max_l=56, k=300, filter_h=5, pad_left=pad_left)
+
+        '''for sent in datasets_char[0][:2]:
+            print '#####'
+            for word in sent:
+                print word
+                for char in word:
+                    if char:
+                        print idx2char[char]
+        print 'y::'
+        for y in datasets_char[1][:2]:
+            print y'''
         return datasets_char[0], datasets_char[1], datasets_char[2], datasets_char[3], charcount, max_word_l
 
 # TBD
