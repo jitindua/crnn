@@ -28,7 +28,8 @@ from keras.optimizers import Adadelta, SGD
 import time
 
 
-word_model = 0
+word_model = 1
+char_model = 1
 char_vec_size = 15
 batch_size = 50
 nb_filter = 200
@@ -45,15 +46,31 @@ print('Loading data...')
 
 import mr_data
 if word_model:
-  X_train, y_train, X_test, y_test, W, W2 = mr_data.load_data(fold=0, word_model = word_model)
+  X_train_w, y_train_w, X_test_w, y_test_w, W, W2 = mr_data.load_data(fold=0, word_model = 1, char_model=0)
   max_features = len(W)
   embedding_dims = len(W[0])
-else:
-  X_train, y_train, X_test, y_test, char_vocab_size, max_word_l = mr_data.load_data(fold=0, word_model = word_model)
+  print('word_vocab_size', max_features)
+  print('max_sent_l', embedding_dims)
+  print('X_train word shape:', X_train_w.shape)
+  print('X_test word shape:', X_test_w.shape)
+if char_model:
+  X_train, y_train, X_test, y_test, char_vocab_size, max_word_l = mr_data.load_data(fold=0, word_model = 0, char_model=1)
   print('char_vocab_size', char_vocab_size)
   print('max_word_l', max_word_l)
-print('X_train shape:', X_train.shape)
-print('X_test shape:', X_test.shape)
+  print('X_train chars shape:', X_train.shape)
+  print('X_test chars shape:', X_test.shape)
+
+if (word_model==1) and (char_model==0):
+    X_train = X_train_w
+    y_train = y_train_w
+    X_test = X_test_w
+    y_test = y_test_w
+elif (word_model and char_model):
+    X_train = {'word':X_train_w, 'chars':X_train}
+    y_train = {'output':y_train}
+    X_test = {'word':X_test_w, 'chars':X_test}
+    y_test = {'output':y_test}
+
 # char:
 # X_train shape: (9595, 64, 20)
 # X_test shape: (1067, 64, 20)
@@ -240,26 +257,44 @@ class sModel(Model):
 
 
 
+if word_model and char_model:
+    # sent len + pad
+    maxlen = X_train['word'].shape[1]
+else:
+    maxlen = X_train.shape[1]
 
-# sent len + pad
-maxlen = X_train.shape[1]
 
 print('Train...')
 accs = []
 first_run = True
 for i in xrange(folds):
+
+    
     if word_model:
-        X_train, y_train, X_test, y_test, W, W2 = mr_data.load_data(fold=i, word_model=word_model)
-    else:
-        X_train, y_train, X_test, y_test, char_vocab_size, max_word_l  = mr_data.load_data(fold=i, word_model=word_model)
+          X_train_w, y_train_w, X_test_w, y_test_w, W, W2 = mr_data.load_data(fold=i, word_model = 1, char_model=0)
+    if char_model:
+          X_train, y_train, X_test, y_test, char_vocab_size, max_word_l = mr_data.load_data(fold=i, word_model = 0, char_model=1)
+    rand_idx = np.random.permutation(range(len(X_train)))
+
+    if word_model:
+        X_train_w = X_train_w[rand_idx]
+        y_train_w = y_train_w[rand_idx]
+    if char_model:
+        X_train = X_train[rand_idx]
+        y_train = y_train[rand_idx]
+    if (word_model==1) and (char_model==0):
+        X_train = X_train_w
+        y_train = y_train_w
+        X_test = X_test_w
+        y_test = y_test_w
+    elif (word_model and char_model):
+        X_train = {'word':X_train_w, 'chars':X_train}
+        y_train = {'output':y_train}
+        X_test = {'word':X_test_w, 'chars':X_test}
+        y_test = {'output':y_test}
 
     print(len(X_train), 'train sequences')
     print(len(X_test), 'test sequences')
-    print('X_train shape:', X_train.shape)
-    print('X_test shape:', X_test.shape)
-    rand_idx = np.random.permutation(range(len(X_train)))
-    X_train = X_train[rand_idx]
-    y_train = y_train[rand_idx]
 
     def CNN(seq_length, length, input_size, feature_maps, kernels, x):
         
@@ -311,18 +346,26 @@ for i in xrange(folds):
         print('Build model...%d of %d' % (i + 1, folds))
 
         if word_model:
-            main_input = Input(shape=(maxlen, ), dtype='int32', name='main_input')
+            main_input_w = Input(shape=(maxlen, ), dtype='int32', name='word')
             # embedding_dims = 300 (w2v) -> output
             # max_features = vocab
             # max_len: sentece length + padding = 64
             # takes int in range [0, max_features)
-            embedding  = Embedding(max_features, embedding_dims,
+            embedding_w  = Embedding(max_features, embedding_dims,
                           weights=[np.matrix(W)], input_length=maxlen,
-                          name='embedding')(main_input)      
-        else:
+                          name='embedding')(main_input_w)      
+        if char_model:
             # Input would be list of characters instead of index for a word
             # max_features is char representation dimention 26/...
             main_input, embedding = charCNN()
+
+        if word_model and char_model==0:
+            main_input = main_input_w
+            embedding = embedding_w
+        if word_model and char_model:
+            embedding = Concatenate()([embedding_w, embedding])
+            main_input = [main_input_w, main_input]
+
 
         embedding = Dropout(0.50)(embedding)
 

@@ -119,7 +119,7 @@ def make_idx_data_cv_org_text(revs, word_idx_map, cv, max_l=51, k=300, filter_h=
 
 x = None
 y = None
-def load_data(fold, pad_left=True, word_model = True):
+def load_data(fold, word_model, char_model, pad_left=True):
     global x
     global y
     if x is None:
@@ -146,7 +146,7 @@ def load_data(fold, pad_left=True, word_model = True):
         datasets = make_idx_data_cv(revs, word_idx_map, fold, max_l=56, k=300, filter_h=5, pad_left=pad_left)
         img_h = len(datasets[0][0])-1
         return datasets[0][:,:img_h], datasets[0][:, -1], datasets[1][:,: img_h], datasets[1][: , -1], W, W2
-    else:
+    if char_model:
         datasets_char = make_char_idx_data_cv(revs, fold, max_word_l, char2idx, tokens, max_l=56, k=300, filter_h=5, pad_left=pad_left)
 
         '''for sent in datasets_char[0][:2]:
