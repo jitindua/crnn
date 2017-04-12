@@ -25,10 +25,9 @@ from keras import callbacks
 from keras.utils import generic_utils
 from keras.models import Model
 from keras.optimizers import Adadelta, SGD
-import time
+import tensorflow as tf
 
-
-word_model = 1
+word_model = 0
 char_model = 1
 char_vec_size = 15
 batch_size = 50
@@ -439,6 +438,9 @@ for i in xrange(folds):
       pickle.dump(opt, open('{}/{}.pkl'.format(checkpoint_dir, savefile), "wb"))
       model.save('{}/{}.json'.format(checkpoint_dir, savefile))'''
 
+    tb_cb = callbacks.TensorBoard(log_dir='./logs', histogram_freq = 10)
+    sv_cb = callbacks.ModelCheckpoint(filepath='./logs/weights.hdf5', verbose=1, save_best_only=True)
+
     best_val_acc = 0
     best_test_acc = 0
     for j in xrange(nb_epoch):
@@ -446,7 +448,7 @@ for i in xrange(folds):
         his = model.fit(X_train, y_train,
                         batch_size=batch_size,
                         validation_split=0.1,
-                        shuffle=True,
+                        shuffle=True, callbacks = [tb_cb, sv_cb],
                         epochs=1, verbose=0)
         print('Fold %d/%d Epoch %d/%d\t%s' % (i + 1,
                                           folds, j + 1, nb_epoch, str(his.history)))
@@ -468,3 +470,10 @@ for i in xrange(folds):
                                                                cost * left / 60.0))
     accs.append(best_test_acc)
     print('Avg test acc:', str(np.mean(accs)))
+    # serialize to JSON
+    model_json = model.to_json()
+    with open("model.json","w") as jf:
+      jf.write(model_json)
+    model.save_weights('model.h5')
+    print("Saved model to disk")
+
